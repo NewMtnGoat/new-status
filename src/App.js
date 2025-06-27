@@ -737,7 +737,7 @@ function ActiveAlertCard({ alert, onCancel, addNotification }) {
             </div>
             <div className="bg-gray-700/50 p-4 rounded-lg">
                 <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
-                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={20}/> <span>Show a Calming Exercise</span> </>}
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
                     </button>
                 {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
             </div>
@@ -812,139 +812,1785 @@ function AICompanionView({ isPremium, setCurrentView, addNotification }) {
     };
 
     return (
-        <div className="flex flex-col h-full max-w-2xl mx-auto bg-gray-800 rounded-2xl shadow-lg">
-            <div className="p-4 border-b border-gray-700">
-                <h2 className="text-xl font-bold text-center text-blue-300">AI Companion</h2>
-            </div>
-            <div className="flex-grow p-4 overflow-y-auto">
-                <div className="space-y-4">
-                    {messages.map((msg, index) => (
-                        <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200'}`}>
-                                <p className="whitespace-pre-wrap">{msg.parts[0].text}</p>
-                            </div>
-                        </div>
-                    ))}
-                    {isLoading && (
-                         <div className="flex justify-start">
-                            <div className="bg-gray-700 p-3 rounded-2xl">
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-75"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-150"></div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    <div ref={chatEndRef} />
-                </div>
-            </div>
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-700">
-                <div className="flex space-x-2">
-                    <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} placeholder="Type your message..." className="flex-grow bg-gray-700 border border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-full transition-colors disabled:bg-blue-900">
-                        <Send size={20} />
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
                     </button>
                 </div>
-            </form>
+            )}
         </div>
     );
 }
 
-function ResourcesView({ isPremium, setCurrentView }) {
-    const freeResources = [
-        { name: "Crisis Services Canada", desc: "For anyone thinking of suicide or worried about someone else.", url: "https://www.crisisservicescanada.ca/en/", phone: "1-833-456-4566" },
-        { name: "Bridge the gAPP (NL)", desc: "Mental health and substance use support for adults in Newfoundland and Labrador.", url: "https://www.bridgethegAPP.ca/", phone: "811" },
-        { name: "Wellness Together Canada", desc: "Mental health and substance use support for all Canadians.", url: "https://www.wellnesst.ca/en-ca", phone: "1-866-585-0445" },
-    ];
-    const premiumResources = [
-        { name: "Guided PTSD Meditations", desc: "A collection of guided audio sessions designed to promote calm and grounding.", type: 'video', url: "https://www.youtube.com/watch?v=kEMFq1fF44I" },
-        { name: "Understanding Trauma (Video Course)", desc: "An expert-led video series explaining the neurobiology of trauma and recovery.", type: 'video', url: "https://www.youtube.com/watch?v=B-m_yAga0i8" },
-        { name: "The Body Keeps the Score (Book Summary)", desc: "Key insights from Dr. Bessel van der Kolk's seminal book on trauma.", type: 'article', url: "https://www.goodreads.com/book/show/18693771-the-body-keeps-the-score" },
-    ];
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    const ResourceCard = ({ res, locked }) => (
-        <div className={`bg-gray-800 p-6 rounded-lg shadow relative ${locked && 'opacity-50'}`}>
-            {locked && <Lock className="absolute top-4 right-4 text-yellow-400"/>}
-            <h3 className="text-xl font-bold text-teal-300">{res.name}</h3>
-            <p className="text-gray-300 mt-2 mb-4">{res.desc}</p>
-            <div className="flex items-center space-x-4">
-                <a href={!locked ? res.url : undefined} target="_blank" rel="noopener noreferrer" className={`text-blue-400 ${!locked ? 'hover:underline' : 'cursor-not-allowed'}`}>
-                    Access Resource
-                </a>
-                {res.phone && <p className="text-gray-400">Phone: {res.phone}</p>}
-            </div>
-        </div>
-    );
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
 
-    return (
-        <div className="max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold mb-6 text-blue-300">Resource Library</h2>
-            <div className="space-y-4 mb-8">
-                {freeResources.map(res => <ResourceCard key={res.name} res={res} locked={false} />)}
-            </div>
-            <div>
-                 <h3 className="text-2xl font-bold mb-4 text-yellow-300 flex items-center"><Star size={22} className="mr-2"/>Premium Resources</h3>
-                 {!isPremium && <PremiumLock setCurrentView={setCurrentView} />}
-                 <div className="space-y-4 mt-4">
-                    {premiumResources.map(res => <ResourceCard key={res.name} res={res} locked={!isPremium} />)}
-                 </div>
-            </div>
-        </div>
-    );
-}
-
-
-function NotificationArea({ notifications }) {
-    const getIconAndColor = (type) => {
-        switch(type) {
-            case 'success': return { icon: <CheckCircle className="text-green-400" />, colorClass: 'border-green-400' };
-            case 'error': return { icon: <XCircle className="text-red-400" />, colorClass: 'border-red-400' };
-            case 'acknowledged': return { icon: <Phone className="text-blue-400" />, colorClass: 'border-blue-400' };
-            case 'resolved': return { icon: <Shield className="text-gray-400" />, colorClass: 'border-gray-400' };
-            case 'check-in': return { icon: <MessageSquare className="text-purple-400" />, colorClass: 'border-purple-400' };
-            case 'wellbeing-request': return { icon: <Headphones className="text-teal-400" />, colorClass: 'border-teal-400' };
-            case 'red-alert': return { icon: <AlertTriangle className="text-red-400" />, colorClass: 'border-red-400' };
-            case 'yellow-alert': return { icon: <AlertTriangle className="text-yellow-400" />, colorClass: 'border-yellow-400' };
-            default: return { icon: <AlertTriangle className="text-yellow-400" />, colorClass: 'border-yellow-400' };
-        }
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
     };
     
     return (
-        <div className="fixed top-20 right-4 z-50 space-y-3 w-80">
-            {notifications.map(notif => {
-                const { icon, colorClass } = getIconAndColor(notif.type);
-                return (
-                    <div key={notif.uniqueId} className={`bg-gray-800 shadow-2xl rounded-lg p-3 flex items-start space-x-3 border-l-4 ${colorClass}`}>
-                        <div className="flex-shrink-0 pt-1">{icon}</div>
-                        <div className="flex-grow">
-                             <p className="text-sm text-gray-200">
-                                {notif.from && <span className="font-bold">{notif.from.name} </span>}
-                                {notif.message}
-                            </p>
-                        </div>
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>1. Select a friend...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
                     </div>
-                );
-            })}
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
 
-const CopyButton = ({ textToCopy }) => {
-    const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
-        if (!textToCopy) return;
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        document.body.appendChild(textArea);
-        textArea.select();
-        try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 2000); } 
-        catch (err) { console.error('Failed to copy text: ', err); }
-        document.body.removeChild(textArea);
-    };
-    return ( <button onClick={handleCopy} className="ml-2 p-1 rounded-md hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"> {copied ? <CheckCircle size={14} className="text-green-400" /> : <Copy size={14} className="text-gray-400" />} </button> );
-};
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
 
-const style = document.createElement('style');
-style.innerHTML = ` @keyframes pulse-intense { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 50% { transform: scale(1.02); box-shadow: 0 0 20px 30px rgba(239, 68, 68, 0); } } .animate-pulse-intense { animation: pulse-intense 2s infinite; } `;
-document.head.appendChild(style);
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>1. Select a friend...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>1. Select a friend...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>1. Select a friend...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>1. Select a friend...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        { id: 'good', label: 'Feeling Good', icon: <Smile/>, color: 'border-green-500', selectedColor: 'bg-green-500 text-white' },
+        { id: 'uneasy', label: 'Uneasy', icon: <Meh/>, color: 'border-yellow-500', selectedColor: 'bg-yellow-500 text-black' },
+        { id: 'struggling', label: 'Struggling', icon: <Frown/>, color: 'border-red-500', selectedColor: 'bg-red-500 text-white' },
+    ];
+    return (
+        <div className="w-full max-w-md p-4 bg-gray-800 rounded-2xl shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-3 text-gray-300">How are you today?</h3>
+            <div className="flex justify-around">
+                {statuses.map(s => (
+                    <button key={s.id} onClick={() => onStatusChange(s.id)} 
+                    className={`flex items-center space-x-2 py-2 px-4 border-2 rounded-lg transition-colors ${currentStatus === s.id ? s.selectedColor : `bg-gray-700 hover:bg-gray-600 ${s.color}`}`}>
+                        {s.icon} <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
+function AICompanionView({ isPremium, setCurrentView, addNotification }) {
+    const [messages, setMessages] = useState([]);
+    const [userInput, setUserInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    useEffect(scrollToBottom, [messages]);
+    
+    useEffect(() => {
+        if(isPremium) {
+            setMessages([{role: 'model', parts: [{text: "Hello, I'm your private AI Companion. I'm here to listen and support you. How are you feeling right now?"}]}]);
+        }
+    }, [isPremium]);
+
+    if (!isPremium) {
+        return <PremiumLock setCurrentView={setCurrentView} />;
+    }
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!userInput.trim() || isLoading) return;
+        
+        const newHistory = [...messages, { role: 'user', parts: [{text: userInput}]}];
+        setMessages(newHistory);
+        setUserInput('');
+        setIsLoading(true);
+
+        const systemPrompt = "You are a calm, supportive, and empathetic AI companion. Your user is seeking a safe space to talk about their feelings, potentially related to PTSD or high stress. Your primary goals are: 1. Listen actively and validate their feelings without judgment. 2. If they express severe distress, gently guide them to use the app's 'Crisis Alert' feature or contact a professional resource from the 'Resources' tab. 3. Do NOT provide medical advice. 4. Keep responses concise and caring. Start your response now."
+        const responseText = await generateGeminiContent(`${systemPrompt}\n\nMy current thought: ${userInput}`, newHistory);
+        
+        if (responseText) {
+            setMessages(prev => [...prev, {role: 'model', parts: [{text: responseText}]}]);
+        } else {
+            addNotification({id: Date.now().toString(), type: 'error', message: "I'm having a little trouble connecting right now. Please try again in a moment."});
+            setMessages(prev => prev.slice(0, -1)); // remove the user's message if AI fails
+        }
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Headphones className="mr-2 text-teal-300"/>Wellbeing Chat</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to request a chat.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <button onClick={handleRequest} disabled={!selectedFriend} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Phone size={20}/>
+                        <span>Request Chat</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EnhancedStatusCheckSender({ circle, addNotification, sendSystemNotification }) {
+    const [selectedFriend, setSelectedFriend] = useState('');
+    const [messageTopic, setMessageTopic] = useState('');
+    const [generatedMessage, setGeneratedMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateMessage = async () => {
+        if (!messageTopic.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please enter a topic for the message.' }); return; }
+        setIsGenerating(true);
+        setGeneratedMessage('');
+        const prompt = `You are a caring friend. Based on the following theme, write one short, warm, and supportive check-in message (under 25 words) to send to a friend. Theme: '${messageTopic}'. Respond with only the message itself, without any extra text or quotation marks.`;
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGeneratedMessage(result.trim()); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate message. Try again.' }); }
+        setIsGenerating(false);
+    };
+
+    const handleSend = async () => {
+        if (!selectedFriend) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please select a friend.' }); return; }
+        if (!generatedMessage.trim()) { addNotification({ id: Date.now().toString(), type: 'error', message: 'Please generate a message first.' }); return; }
+        try {
+            // START OF DEBUGGING ADDITION (Enhanced Status Check Send)
+            console.log("DEBUG: Sending enhanced status check to:", selectedFriend, " message:", generatedMessage);
+            // END OF DEBUGGING ADDITION
+            await sendSystemNotification(selectedFriend, generatedMessage, 'check-in');
+            addNotification({ id: Date.now().toString(), type: 'success', message: 'Status check sent!' });
+            setSelectedFriend(''); setMessageTopic(''); setGeneratedMessage('');
+        } catch (error) { console.error("Error sending status check:", error); addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not send status check.' }); }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-md p-6 bg-gray-800 rounded-2xl shadow-xl mx-auto my-4">
+            <h3 className="text-xl font-semibold mb-4 flex items-center"><Sparkles className="mr-2 text-yellow-300"/>AI-Assisted Status Check</h3>
+            {circle.length === 0 ? ( <p className="text-gray-400">Add friends to your circle to send them a status check.</p>
+            ) : (
+                <div className="space-y-4 w-full">
+                    <select value={selectedFriend} onChange={e => setSelectedFriend(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="" disabled>Select a friend to call...</option>
+                        {circle.map(friend => (<option key={friend.id} value={friend.id}>{friend.name}</option>))}
+                    </select>
+                    <div className="flex space-x-2 w-full">
+                        <input type="text" value={messageTopic} onChange={e => setMessageTopic(e.target.value)} placeholder="2. Message topic (e.g., 'gentle check-in')" className="flex-grow bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <button onClick={handleGenerateMessage} disabled={isGenerating} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:bg-yellow-800">
+                             {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div> : <Sparkles size={20}/>}
+                        </button>
+                    </div>
+                    {generatedMessage && ( <div className="bg-gray-700 p-3 rounded-lg w-full"> <p className="text-gray-300 italic">"{generatedMessage}"</p> </div> )}
+                    <button onClick={handleSend} disabled={!generatedMessage || !selectedFriend} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                        <Send size={20}/>
+                        <span>3. Send Message</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CrisisModal({ alert, onRespond }) {
+    const [guidance, setGuidance] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateGuidance = async () => {
+        setIsGenerating(true);
+        setGuidance('');
+        const prompt = "A friend has sent a crisis alert indicating they are experiencing extreme distress, possibly a PTSD episode. As a mental health first aid expert, provide 3 brief, actionable tips for the person who is about to respond. The tips should be supportive, non-judgemental, and focus on immediate de-escalation and safety. Start with 'Remember:'.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGuidance(result); } 
+        else { setGuidance("Could not load tips. Focus on listening and showing you care."); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-red-900 border-4 border-red-500 rounded-2xl p-8 max-w-lg w-full text-center shadow-2xl animate-pulse-intense">
+                <AlertTriangle className="mx-auto text-red-300 h-24 w-24 mb-4" />
+                <h2 className="text-4xl font-extrabold text-white mb-2">CRISIS ALERT</h2>
+                <p className="text-2xl text-red-200 mb-6"> <span className="font-bold">{alert.fromUser.name}</span> needs help now. </p>
+                <button onClick={() => onRespond(alert)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105"> I Can Help </button>
+                <div className="mt-6">
+                    <button onClick={handleGenerateGuidance} disabled={isGenerating} className="text-sm text-indigo-200 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/50 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 w-full">
+                        {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>How to Help</span> </>}
+                    </button>
+                    {guidance && <div className="text-left text-sm mt-3 text-indigo-100 bg-black/20 p-3 rounded-md">{guidance}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActiveAlertCard({ alert, onCancel, addNotification }) {
+    const [groundingExercise, setGroundingExercise] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateExercise = async () => {
+        setIsGenerating(true); setGroundingExercise('');
+        const prompt = "You are an expert in mindfulness. Generate a simple grounding exercise for someone in intense anxiety. It must be short, easy, and focus on the senses. Use simple numbered steps. Do not include a preamble.";
+        const result = await generateGeminiContent(prompt);
+        if (result) { setGroundingExercise(result); } 
+        else { addNotification({ id: Date.now().toString(), type: 'error', message: 'Could not generate exercise.' }); }
+        setIsGenerating(false);
+    };
+
+    return (
+        <div className="w-full p-6 bg-gray-800 rounded-2xl shadow-xl border-2 border-yellow-500 text-center space-y-4">
+            <div>
+                <div className="animate-pulse flex justify-center items-center text-yellow-400 mb-2"> <AlertTriangle size={24} className="mr-2"/> <p className="font-bold">ALERT SENT</p> </div>
+                <p className="text-lg text-gray-300"> Your circle has been notified. </p>
+                {alert.status === 'acknowledged' && ( <div className="bg-green-800/50 p-3 rounded-lg mt-4"> <p className="font-bold text-green-300">{alert.responder.name} is responding!</p> </div> )}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+                <button onClick={handleGenerateExercise} disabled={isGenerating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:bg-indigo-900">
+                    {isGenerating ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <> <BrainCircuit size={16}/> <span>Show a Calming Exercise</span> </>}
+                    </button>
+                {groundingExercise && ( <div className="text-left text-sm mt-4 text-indigo-100 bg-black/20 p-3 rounded-md">{groundingExercise}</div> )}
+            </div>
+            <button onClick={() => onCancel()} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"> I'm OK Now (Cancel Alert) </button>
+        </div>
+    );
+}
+
+function DailyStatusSelector({ currentStatus, onStatusChange }) {
+    const statuses = [
+        {
